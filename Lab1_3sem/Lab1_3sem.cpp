@@ -5,15 +5,14 @@
 #define CIR_GEOMETRY 3
 #define RECT_GEOMETRY 4
 using namespace std;
-int main(){
-    cout << "Hello World!\n";
-}
+
 class Figure {
 public:
-    int* geometry;
+    double* geometry;
+    double angle;
     // Чисто виртуальная функция (абстрактная функция)
     virtual void rotate()  = 0;
-    virtual void square()  = 0;
+    virtual void square()  = 0; 
     // Виртуальный деструктор
     virtual ~Figure() = default;
 };
@@ -21,14 +20,35 @@ public:
 
 class Circle : public Figure {
 public:
-    int* geometry = new int[CIR_GEOMETRY]; // xp yp r
+    double* geometry = new double[CIR_GEOMETRY]; // xp yp r
+    Circle();
+    Circle(double xp, double yp, double r){
+        geometry[0] = xp, geometry[1] = yp, geometry[2] = r;
+    }
+    void rotate() override{}
+    void square() override{}
 };
 
 
 class Rectangle : public Figure {
 public:
-    int* geometry = new int[RECT_GEOMETRY]; // xp yp a b
+    double* geometry = new double[RECT_GEOMETRY]; // xp yp a b
+    Rectangle() = default;
+    Rectangle(double xp, double yp, double a, double b){
+        geometry[0] = xp, geometry[1] = yp, geometry[2] = a, geometry[3] = b;
+    }
+    void rotate() override{}
+    void square() override{}
 };
+
+
+int main(){
+    Circle cicrc = Circle(1.0,1.0,1.0);
+    Rectangle rect = Rectangle(1.0,1.0,1.0,1.0);
+    cicrc.angle = 121;
+    rect.angle = 33;
+    cout << cicrc.angle << "|" << rect.angle << endl;
+}
 // Запуск программы: CTRL+F5 или меню "Отладка" > "Запуск без отладки"
 // Отладка программы: F5 или меню "Отладка" > "Запустить отладку"
 
