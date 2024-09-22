@@ -271,39 +271,123 @@ private:
 
         return distance <= rSum; // Если расстояние меньше суммы радиусов, круги пересекаются
     }
+    
 
-    bool rectangleCircleIntersect(Rectangle* rect, Circle* circle) {
+    void getCorners(Rectangle* rect, double corners[4][2]) {
+        double x = rect->geometry[0]; // центр
+        double y = rect->geometry[1]; // центр
+        double a = rect->geometry[2] / 2; // половина ширины
+        double b = rect->geometry[3] / 2; // половина высоты
+        double angleRad = rect->angle * get_PI() / 180.0; // угол в радианах
+
+        // Вершины без учета поворота
+        double localCorners[4][2] = {
+            {-a, -b}, // нижний левый
+            { a, -b}, // нижний правый
+            { a,  b}, // верхний правый
+            {-a,  b}  // верхний левый
+        };
+
+        // Поворот вершин на угол rect->angle
+        for (int i = 0; i < 4; ++i) {
+            double local_x = localCorners[i][0];
+            double local_y = localCorners[i][1];
+            corners[i][0] = x + (local_x * cos(angleRad) - local_y * sin(angleRad)); // поворот вокруг центра
+            corners[i][1] = y + (local_x * sin(angleRad) + local_y * cos(angleRad)); // поворот вокруг центра
+        }
+    }
+    bool rectangleCircleIntersect(Rectangle* rect,Circle* circle) {
+        double corners[4][2];  // Углы прямоугольника
+        getCorners(rect, corners);  // Вычисляем углы прямоугольника
+
+        // Центр окружности
         double cx = circle->geometry[0];
         double cy = circle->geometry[1];
-        double r = circle->geometry[2];
+        double radius = circle->geometry[2];
 
-        double rectX = rect->geometry[0];
-        double rectY = rect->geometry[1];
-        double a = rect->geometry[2] / 2; // Половина ширины
-        double b = rect->geometry[3] / 2; // Половина высоты
+        // Находим минимальные и максимальные координаты прямоугольника по X и Y
+        double minX = corners[0][0], maxX = corners[0][0];
+        double minY = corners[0][1], maxY = corners[0][1];
 
-        double closestX = std::max(rectX - a, std::min(cx, rectX + a));
-        double closestY = std::max(rectY - b, std::min(cy, rectY + b));
+        for (int i = 1; i < 4; ++i) {
+            if (corners[i][0] < minX) minX = corners[i][0];
+            if (corners[i][0] > maxX) maxX = corners[i][0];
+            if (corners[i][1] < minY) minY = corners[i][1];
+            if (corners[i][1] > maxY) maxY = corners[i][1];
+        }
 
-        double dx = cx - closestX;
-        double dy = cy - closestY;
+        // Находим ближайшую точку прямоугольника к центру окружности
+        double nearestX = cx;
+        double nearestY = cy;
 
-        return (dx * dx + dy * dy) <= r * r; // Если расстояние меньше радиуса, то они пересекаются
+        // Проверка по оси X (проекция на стороны прямоугольника)
+        if (cx < minX) {
+            nearestX = minX;
+        }
+        else if (cx > maxX) {
+            nearestX = maxX;
+        }
+
+        // Проверка по оси Y (проекция на стороны прямоугольника)
+        if (cy < minY) {
+            nearestY = minY;
+        }
+        else if (cy > maxY) {
+            nearestY = maxY;
+        }
+
+        // Вычисляем расстояние от ближайшей точки до центра окружности
+        double distanceX = cx - nearestX;
+        double distanceY = cy - nearestY;
+        double distanceSquared = distanceX * distanceX + distanceY * distanceY;
+
+        // Проверка, пересекается ли окружность с прямоугольником
+        return distanceSquared <= radius * radius;
     }
 
+    
+    
+    bool doProjectionsOverlap(double proj1[2], double proj2[2]) {
+        return !(proj1[1] < proj2[0] || proj2[1] < proj1[0]);
+    }
+    void projectOntoAxis(double axis[2], double corners[4][2], double projection[2]) {
+        double min_proj = (corners[0][0] * axis[0] + corners[0][1] * axis[1]);
+        double max_proj = min_proj;
+        for (int i = 1; i < 4; ++i) {
+            double proj = (corners[i][0] * axis[0] + corners[i][1] * axis[1]);
+            if (proj < min_proj) min_proj = proj;
+            if (proj > max_proj) max_proj = proj;
+        }
+        projection[0] = min_proj;
+        projection[1] = max_proj;
+    }
     bool rectanglesIntersect(Rectangle* r1, Rectangle* r2) {
-        double r1_left = r1->geometry[0] - r1->geometry[2] / 2;
-        double r1_right = r1->geometry[0] + r1->geometry[2] / 2;
-        double r1_top = r1->geometry[1] + r1->geometry[3] / 2;
-        double r1_bottom = r1->geometry[1] - r1->geometry[3] / 2;
+        // Получаем углы для обоих прямоугольников
+        double r1_corners[4][2], r2_corners[4][2];
+        getCorners(r1, r1_corners);
+        getCorners(r2, r2_corners);
 
-        double r2_left = r2->geometry[0] - r2->geometry[2] / 2;
-        double r2_right = r2->geometry[0] + r2->geometry[2] / 2;
-        double r2_top = r2->geometry[1] + r2->geometry[3] / 2;
-        double r2_bottom = r2->geometry[1] - r2->geometry[3] / 2;
+        // Перечень осей для проверки
+        double axes[4][2] = {
+            {r1_corners[1][0] - r1_corners[0][0], r1_corners[1][1] - r1_corners[0][1]}, // ось первой стороны r1
+            {r1_corners[3][0] - r1_corners[0][0], r1_corners[3][1] - r1_corners[0][1]}, // ось второй стороны r1
+            {r2_corners[1][0] - r2_corners[0][0], r2_corners[1][1] - r2_corners[0][1]}, // ось первой стороны r2
+            {r2_corners[3][0] - r2_corners[0][0], r2_corners[3][1] - r2_corners[0][1]}  // ось второй стороны r2
+        };
 
-        // Прямоугольники пересекаются, если одна из сторон одного прямоугольника пересекает другой
-        return !(r1_left > r2_right || r1_right < r2_left || r1_top < r2_bottom || r1_bottom > r2_top);
+        // Проверяем пересечение проекций на каждой оси
+        for (int i = 0; i < 4; ++i) {
+            double axis[2] = { axes[i][0], axes[i][1] };
+            double r1_projection[2], r2_projection[2];
+            projectOntoAxis(axis, r1_corners, r1_projection);
+            projectOntoAxis(axis, r2_corners, r2_projection);
+
+            if (!doProjectionsOverlap(r1_projection, r2_projection)) {
+                return false; // если проекции не пересекаются, прямоугольники не пересекаются
+            }
+        }
+
+        return true; // если все проекции пересекаются, прямоугольники пересекаются
     }
 
     bool figuresIntersect(Figure* f1, Figure* f2) {
@@ -382,6 +466,7 @@ public:
             }
         }
     }
+
     void squreAllFiguresPrint() {
         double resultSquare = 0;
         for (int i = 0; i < figures_amount; i++) {
@@ -410,11 +495,12 @@ public:
 
 
 int main() {
-    Field field = Field(20);
+    Field field = Field(20,0.7);
     field.printFigures();
     field.squreAllFiguresPrint();
     field.combine();
     field.printFigures();
     field.squreAllFiguresPrint();
 }
+
 
