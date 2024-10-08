@@ -2,6 +2,7 @@
 #include <cmath>
 #include <string> 
 #include <numbers>
+#include <array>
 
 #define CIR_GEOMETRY 3
 #define RECT_GEOMETRY 4
@@ -28,19 +29,17 @@ double rand_in_range(double min, double max) {
 
 class Figure {
 public:
-    static int numberOfFigures;
+    static inline int numberOfFigures = 0;
     double* geometry;
     double angle;
 
     // Чисто виртуальная функция (абстрактная функция)
-    virtual void rotate() = 0;
+    virtual void rotate(double angle) = 0;
     virtual double square() = 0;
     virtual string toString() = 0;
     // Виртуальный деструктор
     virtual ~Figure() = default;
 };
-
-int Figure::numberOfFigures = 0;
 
 class Circle : public Figure {
 public:
@@ -59,7 +58,9 @@ public:
         Figure::numberOfFigures++;
     }
 
-    void rotate() override {}
+    void rotate(double angle) override {
+        this->angle = angle;
+    }
 
     double square() override {
         return get_PI() * geometry[2] * geometry[2];
@@ -72,12 +73,7 @@ public:
     }
 
     static bool checkCircleInBox(Circle circle) {
-
-        double x = circle.geometry[0];
-        double y = circle.geometry[1];
-        double r = circle.geometry[2]; // && y_point > r && 10*R - x_point > r && 10*R - y_point > r
-
-        return (x - r >= 0 && y - r >= 0 && x + r <= 10 * R && y + r <= 10 * R);
+        return circle.checkIsInBox();
     }
 
     bool checkIsInBox() {
@@ -113,7 +109,9 @@ public:
         Figure::numberOfFigures++;
     }
 
-    void rotate() override {}
+    void rotate(double angle) override {
+        this->angle = angle;
+    }
 
     double square() override {
         return geometry[2] * geometry[3];
@@ -127,38 +125,7 @@ public:
 
     static bool checkRectangleInBox(Rectangle rectangle) {
 
-    double x = rectangle.geometry[0]; // x координата центра
-    double y = rectangle.geometry[1]; // y координата центра
-    double a = rectangle.geometry[2]; // ширина прямоугольника
-    double b = rectangle.geometry[3]; // высота прямоугольника
-    double angleRad = rectangle.angle * get_PI() / 180.0; // угол в радианах
-
-
-    double half_a = a / 2;
-    double half_b = b / 2;
-
-    double corners[4][2] = {
-        {-half_a, -half_b}, // нижний левый
-        { half_a, -half_b}, // нижний правый
-        { half_a,  half_b}, // верхний правый
-        {-half_a,  half_b}  // верхний левый
-    };
-
-    for (int i = 0; i < 4; ++i) {
-        double local_x = corners[i][0];
-        double local_y = corners[i][1];
-
-        // Применяем матрицу поворота
-        double rotated_x = x + (local_x * cos(angleRad) - local_y * sin(angleRad));
-        double rotated_y = y + (local_x * sin(angleRad) + local_y * cos(angleRad));
-
-        // Проверяем, что угол находится внутри границ
-        if (rotated_x < 0 || rotated_x > 30 || rotated_y < 0 || rotated_y > 30) {
-            return false; // Если хотя бы один угол выходит за пределы, возвращаем false
-        }
-    }
-
-    return true; // Все углы внутри коробки
+        return rectangle.checkIsInBox();
 }
 
     bool checkIsInBox() {
@@ -271,7 +238,6 @@ private:
 
         return distance <= rSum; // Если расстояние меньше суммы радиусов, круги пересекаются
     }
-    
 
     void getCorners(Rectangle* rect, double corners[4][2]) {
         double x = rect->geometry[0]; // центр
@@ -344,8 +310,6 @@ private:
         // Проверка, пересекается ли окружность с прямоугольником
         return distanceSquared <= radius * radius;
     }
-
-    
     
     bool doProjectionsOverlap(double proj1[2], double proj2[2]) {
         return !(proj1[1] < proj2[0] || proj2[1] < proj1[0]);
