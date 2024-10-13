@@ -2,7 +2,6 @@
 #include <cmath>
 #include <string> 
 #include <numbers>
-#include <array>
 
 #define CIR_GEOMETRY 3
 #define RECT_GEOMETRY 4
@@ -29,17 +28,19 @@ double rand_in_range(double min, double max) {
 
 class Figure {
 public:
-    static inline int numberOfFigures = 0;
+    static int numberOfFigures;
     double* geometry;
     double angle;
 
     // Чисто виртуальная функция (абстрактная функция)
-    virtual void rotate(double angle) = 0;
+    virtual void rotate() = 0;
     virtual double square() = 0;
     virtual string toString() = 0;
     // Виртуальный деструктор
     virtual ~Figure() = default;
 };
+
+int Figure::numberOfFigures = 0;
 
 class Circle : public Figure {
 public:
@@ -58,9 +59,7 @@ public:
         Figure::numberOfFigures++;
     }
 
-    void rotate(double angle) override {
-        this->angle = angle;
-    }
+    void rotate() override {}
 
     double square() override {
         return get_PI() * geometry[2] * geometry[2];
@@ -73,7 +72,12 @@ public:
     }
 
     static bool checkCircleInBox(Circle circle) {
-        return circle.checkIsInBox();
+
+        double x = circle.geometry[0];
+        double y = circle.geometry[1];
+        double r = circle.geometry[2]; // && y_point > r && 10*R - x_point > r && 10*R - y_point > r
+
+        return (x - r >= 0 && y - r >= 0 && x + r <= 10 * R && y + r <= 10 * R);
     }
 
     bool checkIsInBox() {
@@ -109,9 +113,7 @@ public:
         Figure::numberOfFigures++;
     }
 
-    void rotate(double angle) override {
-        this->angle = angle;
-    }
+    void rotate() override {}
 
     double square() override {
         return geometry[2] * geometry[3];
@@ -125,7 +127,38 @@ public:
 
     static bool checkRectangleInBox(Rectangle rectangle) {
 
-        return rectangle.checkIsInBox();
+    double x = rectangle.geometry[0]; // x координата центра
+    double y = rectangle.geometry[1]; // y координата центра
+    double a = rectangle.geometry[2]; // ширина прямоугольника
+    double b = rectangle.geometry[3]; // высота прямоугольника
+    double angleRad = rectangle.angle * get_PI() / 180.0; // угол в радианах
+
+
+    double half_a = a / 2;
+    double half_b = b / 2;
+
+    double corners[4][2] = {
+        {-half_a, -half_b}, // нижний левый
+        { half_a, -half_b}, // нижний правый
+        { half_a,  half_b}, // верхний правый
+        {-half_a,  half_b}  // верхний левый
+    };
+
+    for (int i = 0; i < 4; ++i) {
+        double local_x = corners[i][0];
+        double local_y = corners[i][1];
+
+        // Применяем матрицу поворота
+        double rotated_x = x + (local_x * cos(angleRad) - local_y * sin(angleRad));
+        double rotated_y = y + (local_x * sin(angleRad) + local_y * cos(angleRad));
+
+        // Проверяем, что угол находится внутри границ
+        if (rotated_x < 0 || rotated_x > 30 || rotated_y < 0 || rotated_y > 30) {
+            return false; // Если хотя бы один угол выходит за пределы, возвращаем false
+        }
+    }
+
+    return true; // Все углы внутри коробки
 }
 
     bool checkIsInBox() {
@@ -166,6 +199,50 @@ public:
     ~Rectangle() {
         delete[] geometry;
         Figure::numberOfFigures--;
+    }
+};
+struct Point {
+    double x;
+    double y;
+    Point(double x = 0, double y = 0) {
+        this->x = x;
+        this->y = y;
+    }
+};
+class Straight {
+    double k;
+    double b;
+    Point p1;
+    Point p2;
+public:
+    Straight(Point p1 = Point(), Point p2 = Point(1,0)) {
+        k = (p2.y - p1.y) / (p2.x - p1.x);
+        b = p1.y - k * p1.x; 
+        this->p1 = p1;
+        this->p2 = p2;
+    }
+    static bool isParallel(const Straight line1, const Straight line2) {
+        return line1.k == line2.k;
+    }
+    static bool isSameLine(const Straight line1, const Straight line2) {
+        return line1.k == line2.k && line1.b == line2.b;
+    }
+    static Point intersection(const Straight line1, const Straight line2) {
+        double x = (line2.b - line1.b) / (line1.k - line2.k);
+        double y = line1.k * x + line1.b;
+        return Point(x, y);
+    }
+    static bool IsPointInStraight(Straight line, Point point) { 
+        double maxX = line.p1.x > line.p2.x ? line.p1.x : line.p2.x;
+        double maxY = line.p1.y > line.p2.y ? line.p1.y : line.p2.y;
+        double minX = line.p1.x < line.p2.x ? line.p1.x : line.p2.x;
+        double minY = line.p1.y < line.p2.y ? line.p1.y : line.p2.y;
+        if (minX <= point.x && point.x <= maxX && minY <= point.y && point.y <= maxY) {
+            return true;
+        }
+        else {
+            return false;
+        }
     }
 };
 
@@ -238,6 +315,7 @@ private:
 
         return distance <= rSum; // Если расстояние меньше суммы радиусов, круги пересекаются
     }
+    
 
     void getCorners(Rectangle* rect, double corners[4][2]) {
         double x = rect->geometry[0]; // центр
@@ -310,6 +388,8 @@ private:
         // Проверка, пересекается ли окружность с прямоугольником
         return distanceSquared <= radius * radius;
     }
+
+    
     
     bool doProjectionsOverlap(double proj1[2], double proj2[2]) {
         return !(proj1[1] < proj2[0] || proj2[1] < proj1[0]);
@@ -328,30 +408,37 @@ private:
     bool rectanglesIntersect(Rectangle* r1, Rectangle* r2) {
         // Получаем углы для обоих прямоугольников
         double r1_corners[4][2], r2_corners[4][2];
+        Straight line_r1, line_r2;
+        Point line_cross;
         getCorners(r1, r1_corners);
         getCorners(r2, r2_corners);
 
-        // Перечень осей для проверки
-        double axes[4][2] = {
-            {r1_corners[1][0] - r1_corners[0][0], r1_corners[1][1] - r1_corners[0][1]}, // ось первой стороны r1
-            {r1_corners[3][0] - r1_corners[0][0], r1_corners[3][1] - r1_corners[0][1]}, // ось второй стороны r1
-            {r2_corners[1][0] - r2_corners[0][0], r2_corners[1][1] - r2_corners[0][1]}, // ось первой стороны r2
-            {r2_corners[3][0] - r2_corners[0][0], r2_corners[3][1] - r2_corners[0][1]}  // ось второй стороны r2
-        };
+        for (int i = 0; i < 4; i++) {
+            line_r1 = Straight(
+                Point(r1_corners[i][0], r1_corners[i][1]),
+                Point(r1_corners[i + 1 == 4 ? 0 : i + 1][0], r1_corners[i + 1 == 4 ? 0 : i + 1][1])
+            );
+            for (int j = 0; j < 4; j++) {
+                line_r2 = Straight(
+                    Point(r2_corners[j][0], r2_corners[j][1]),
+                    Point(r2_corners[j + 1 == 4 ? 0 : j + 1][0], r2_corners[j + 1 == 4 ? 0 : j + 1][1])
+                );
 
-        // Проверяем пересечение проекций на каждой оси
-        for (int i = 0; i < 4; ++i) {
-            double axis[2] = { axes[i][0], axes[i][1] };
-            double r1_projection[2], r2_projection[2];
-            projectOntoAxis(axis, r1_corners, r1_projection);
-            projectOntoAxis(axis, r2_corners, r2_projection);
+                line_cross = Straight::intersection(line_r1, line_r2); //точка пересечения прямых
 
-            if (!doProjectionsOverlap(r1_projection, r2_projection)) {
-                return false; // если проекции не пересекаются, прямоугольники не пересекаются
-            }
+                if (Straight::isParallel(line_r1, line_r2)) { // если прямые парралельны то спинуть итерацию 
+                    break;
+                }
+                else if (Straight::isSameLine(line_r1, line_r2)) { // если 1 и та же линия то возр true
+                    return true;
+                }
+               
+                else if(Straight::IsPointInStraight(line_r1,line_cross) && Straight::IsPointInStraight(line_r2, line_cross)) { // обычное пересечение
+                    return true;
+                }
+            } 
         }
-
-        return true; // если все проекции пересекаются, прямоугольники пересекаются
+        return false;
     }
 
     bool figuresIntersect(Figure* f1, Figure* f2) {
@@ -454,6 +541,23 @@ public:
     }
 
 };
+
+
+
+
+int main() {
+    Field field = Field(20,0.7);
+    field.printFigures();
+    field.squreAllFiguresPrint();
+    field.combine();
+    field.printFigures();
+    field.squreAllFiguresPrint();
+    Straight line1 = Straight(Point(0, 0), Point(2, 3));
+    Straight line2 = Straight(Point(10, 0), Point(0, 15));
+    Point point = Straight::intersection(line1,line2);
+    cout << point.x << "||" << point.y << "|| first line: " << Straight::IsPointInStraight(line1, point) << "|| second line: " << Straight::IsPointInStraight(line2, point) << endl;
+}
+
 
 
 
