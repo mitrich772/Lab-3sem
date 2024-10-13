@@ -1,4 +1,4 @@
-﻿#include <iostream>
+#include <iostream>
 #include <cmath>
 #include <string> 
 #include <numbers>
@@ -212,9 +212,9 @@ struct Point {
 class Straight {
     double k;
     double b;
+public:
     Point p1;
     Point p2;
-public:
     Straight(Point p1 = Point(), Point p2 = Point(1,0)) {
         k = (p2.y - p1.y) / (p2.x - p1.x);
         b = p1.y - k * p1.x; 
@@ -430,7 +430,12 @@ private:
                     break;
                 }
                 else if (Straight::isSameLine(line_r1, line_r2)) { // если 1 и та же линия то возр true
-                    return true;
+                    if (Straight::IsPointInStraight(line_r1, line_r2.p1) || Straight::IsPointInStraight(line_r1, line_r2.p2)) {
+                        return true;
+                    }
+                    else{
+                        break;
+                    }
                 }
                
                 else if(Straight::IsPointInStraight(line_r1,line_cross) && Straight::IsPointInStraight(line_r2, line_cross)) { // обычное пересечение
@@ -557,18 +562,4 @@ int main() {
     Point point = Straight::intersection(line1,line2);
     cout << point.x << "||" << point.y << "|| first line: " << Straight::IsPointInStraight(line1, point) << "|| second line: " << Straight::IsPointInStraight(line2, point) << endl;
 }
-
-
-
-
-
-int main() {
-    Field field = Field(20,0.7);
-    field.printFigures();
-    field.squreAllFiguresPrint();
-    field.combine();
-    field.printFigures();
-    field.squreAllFiguresPrint();
-}
-
 
